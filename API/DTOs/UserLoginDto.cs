@@ -5,4 +5,5 @@ public class UserLoginDto {
     public string Senha { get; set; } = string.Empty;
     public long? Telefone { get; set; }
     public DateTime Data_Nasc { get; set; }
+    public string Role { get; set; } = "User"; // Adicionei para salvar o cargo
 }

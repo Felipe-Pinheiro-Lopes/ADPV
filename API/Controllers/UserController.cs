@@ -18,23 +18,19 @@ public class UserController : ControllerBase
     }
 
     [HttpPost("register")]
-    public IActionResult Register([FromBody] UserLoginDto dto)
+    public IActionResult Register([FromBody] UserUpdateDto dto) 
     {
-        // 1. Mapear DTO para Model
-        var user = new User
-        {
+        var user = new User {
             Nome = dto.Nome,
             Email = dto.Email,
             Telefone = dto.Telefone,
             Data_Nasc = dto.Data_Nasc,
-            // 2. Criptografar a senha
-            Senha = BCrypt.Net.BCrypt.HashPassword(dto.Senha)
+            Role = dto.Role, // <-- Agora vai salvar como Admin se você enviar do Front
+            Senha = BCrypt.Net.BCrypt.HashPassword(dto.Senha) 
         };
 
-        // 3. Salvar no banco
         _context.Users.Add(user);
         _context.SaveChanges();
-
         return Ok(new { message = "Usuário criado com sucesso!" });
     }
 
@@ -63,15 +59,15 @@ public class UserController : ControllerBase
 
     [HttpGet("listar")]
     [Authorize(Roles = "Admin")]
-    [Authorize] // Somente quem tem o Token pode ver a lista
     public IActionResult ListarUsuarios()
     {
-        // Busca todos os usuários do banco, mas remove a senha da resposta por segurança
+        // Adicionei u.Role aqui. Se não retornar no JSON, o React nunca saberá o cargo
         var lista = _context.Users.Select(u => new {
             u.Id,
             u.Nome,
             u.Email,
-            u.Telefone
+            u.Telefone,
+            u.Role // <-- CRUCIAL: Sem isso o modal de edição sempre volta para 'User'
         }).ToList();
 
         return Ok(lista);
@@ -91,17 +87,29 @@ public class UserController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize]
-    public IActionResult Atualizar(int id, [FromBody] UserLoginDto dto)
+    [Authorize(Roles = "Admin")] // Apenas admins devem poder editar outros usuários
+    public IActionResult Atualizar(int id, [FromBody] UserUpdateDto dto)
     {
-        var user = _context.Users.Find(id);
-        if (user == null) return NotFound(new { message = "Usuário não encontrado" });
+        // 1. Busca o usuário no banco pelo ID
+        var userNoBanco = _context.Users.Find(id);
+        
+        if (userNoBanco == null) 
+            return NotFound(new { message = "Usuário não encontrado" });
 
-        // Atualiza apenas os campos permitidos
-        user.Nome = dto.Nome;
-        user.Email = dto.Email;
-        user.Telefone = dto.Telefone;
-        user.Data_Nasc = dto.Data_Nasc;
+        // 2. Atualiza os campos usando os nomes corretos (dto e userNoBanco)
+        userNoBanco.Nome = dto.Nome;
+        userNoBanco.Email = dto.Email;
+        userNoBanco.Telefone = dto.Telefone;
+        userNoBanco.Data_Nasc = dto.Data_Nasc;
+        
+        // 3. Atualiza a Role (Certifique-se que adicionou 'Role' no UserUpdateDto como fizemos antes)
+        userNoBanco.Role = dto.Role;
+
+        // 4. Lógica opcional para senha: Só altera se o admin digitou algo no campo
+        // (Lembrando que no DTO de Update a senha pode ser opcional)
+        // if (!string.IsNullOrEmpty(dto.Senha)) {
+        //     userNoBanco.Senha = BCrypt.Net.BCrypt.HashPassword(dto.Senha);
+        // }
 
         _context.SaveChanges();
         return Ok(new { message = "Usuário atualizado com sucesso!" });
