@@ -9,6 +9,8 @@ export default function UsuariosPage() {
   const [userRole, setUserRole] = useState('')
   const router = useRouter()
   const [carregando, setCarregando] = useState(true)
+  // Estado para impedir a renderização de componentes sensíveis antes da validação
+  const [autorizado, setAutorizado] = useState(false)
 
   // Estados do Modal e Controle de Edição
   const [isModalAberto, setIsModalAberto] = useState(false)
@@ -21,6 +23,7 @@ export default function UsuariosPage() {
   const [novaSenha, setNovaSenha] = useState('')
   const [novaRole, setNovaRole] = useState('User')
 
+  // --- FUNÇÃO PARA CARREGAR DADOS DA API ---
   const carregarUsuarios = async () => {
     const token = localStorage.getItem('token')
     try {
@@ -36,8 +39,11 @@ export default function UsuariosPage() {
     }
   }
 
+  // --- HOOK DE SEGURANÇA E VALIDAÇÃO DE ACESSO ---
   useEffect(() => {
     const token = localStorage.getItem('token')
+    
+    // Se não existir token, redireciona imediatamente
     if (!token) {
       router.push('/login')
       return
@@ -45,32 +51,45 @@ export default function UsuariosPage() {
 
     try {
       const decoded: any = jwtDecode(token)
+      
+      // VERIFICAÇÃO DE EXPIRAÇÃO: Evita que tokens antigos no cache permitam acesso
+      const agora = Date.now() / 1000;
+      if (decoded.exp < agora) {
+        localStorage.removeItem('token'); // Limpa o "lixo" do navegador
+        router.push('/login');
+        return;
+      }
+
+      // Captura a Role (ajustado para o padrão comum do ASP.NET Core)
       const role = decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || decoded.role
+      
+      // Bloqueio de nível de Role: Se não for Admin, volta para o Dashboard
       if (role !== 'Admin') {
         router.push('/dashboard')
         return
       }
+
       setUserRole(role)
+      setAutorizado(true) // Libera a visualização da página
       setCarregando(false) 
       carregarUsuarios()
     } catch (error) {
+      // Se o token estiver corrompido, limpa e expulsa o utilizador
+      localStorage.removeItem('token');
       router.push('/login')
     }
   }, [router])
 
-      // --- FUNÇÕES DE AÇÃO ---
+  // --- FUNÇÕES DE AÇÃO (CRUD) ---
 
   const abrirEdicao = (user: any) => {
     setIsEditando(true);
     setIdParaEditar(user.id);
     setNovoNome(user.nome);
     setNovoEmail(user.email);
-    
-    // Verifica se veio 'role' ou 'Role' do JSON da API
     const cargoAtual = user.role || user.Role || 'User';
     setNovaRole(cargoAtual);
-    
-    setNovaSenha(''); 
+    setNovaSenha(''); // Senha sempre vazia ao abrir edição
     setIsModalAberto(true);
   };
 
@@ -94,19 +113,16 @@ export default function UsuariosPage() {
     
     const metodo = isEditando ? 'PUT' : 'POST'
 
-    // Criamos o objeto de dados. 
-    // Dica: Se na edição a senha estiver vazia, podemos optar por nem enviar o campo
-    // para evitar que o C# tente validar uma string vazia como senha.
     const dadosParaEnviar: any = {
       nome: novoNome,
       email: novoEmail,
       role: novaRole
     }
 
+    // Só envia a senha se for um novo cadastro ou se o campo de edição foi preenchido
     if (novaSenha.trim() !== "") {
       dadosParaEnviar.senha = novaSenha
     } else if (!isEditando) {
-      // Se não for edição, a senha é obrigatória
       alert("A senha é obrigatória para novos usuários.")
       return
     }
@@ -147,7 +163,18 @@ export default function UsuariosPage() {
     }
   }
 
-  if (carregando) return <div className="p-8 text-center font-bold">Validando acesso...</div>
+  // --- RENDERIZAÇÃO CONDICIONAL DE SEGURANÇA ---
+  // Impede o "flash" de conteúdo antes da validação do token ser concluída
+  if (carregando || !autorizado) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EF5B25] mx-auto mb-4"></div>
+          <p className="font-bold text-gray-600">Validando permissões de acesso...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-8">
@@ -160,14 +187,12 @@ export default function UsuariosPage() {
         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
           <h3 className="font-bold text-gray-800 text-lg">Lista de Acessos</h3>
           
-          {userRole === 'Admin' && (
-            <button 
-              onClick={() => { setIsEditando(false); setIsModalAberto(true); }}
-              className="bg-orange-50 text-[#EF5B25] px-4 py-2 rounded-lg font-bold text-sm hover:bg-orange-100 transition-colors"
-            >
-              + Novo Usuário
-            </button>
-          )}
+          <button 
+            onClick={() => { setIsEditando(false); setIsModalAberto(true); }}
+            className="bg-orange-50 text-[#EF5B25] px-4 py-2 rounded-lg font-bold text-sm hover:bg-orange-100 transition-colors"
+          >
+            + Novo Usuário
+          </button>
         </div>
         
         <table className="w-full text-left">
@@ -203,6 +228,7 @@ export default function UsuariosPage() {
         </table>
       </div>
 
+      {/* --- MODAL DE CADASTRO / EDIÇÃO --- */}
       {isModalAberto && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">

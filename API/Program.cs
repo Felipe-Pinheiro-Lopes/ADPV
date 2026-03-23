@@ -12,12 +12,15 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // 2. Configuração do JWT
+// IMPORTANTE: Esta chave deve ser IGUAL à do seu TokenService
 var key = Encoding.ASCII.GetBytes("remember_remember_the_fifteenth_of_november");
 builder.Services.AddAuthentication(x => {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(x => {
+    x.RequireHttpsMetadata = false; // Facilitar teste local
+    x.SaveToken = true;
     x.TokenValidationParameters = new TokenValidationParameters {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
@@ -26,13 +29,16 @@ builder.Services.AddAuthentication(x => {
     };
 });
 
-// 3. Configuração do CORS (Para o Next.js)
+// 3. Configuração do CORS (Ajustada para ser mais flexível no desenvolvimento)
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowNextJs",
-        policy => policy.WithOrigins("http://localhost:3000")
-                        .AllowAnyMethod()
-                        .AllowAnyHeader());
+    options.AddPolicy("AllowNextJs", policy => 
+    {
+        policy.WithOrigins("http://localhost:3000") // Certifique-se que o Next está nesta porta
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials(); // Permitir cookies/auth headers se necessário
+    });
 });
 
 builder.Services.AddControllers();
@@ -54,27 +60,24 @@ builder.Services.AddSwaggerGen(c =>
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
             new string[] {}
         }
     });
 });
 
-// --- AQUI É A LINHA DIVISORA ---
 var app = builder.Build(); 
 
-// 4. Middlewares (A ordem aqui importa!)
+// --- 4. ORDEM DOS MIDDLEWARES (CRUCIAL) ---
+
 if (app.Environment.IsDevelopment()) {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowNextJs"); // Agora o 'app' já existe!
+// O CORS deve vir ANTES de Authentication e Authorization
+app.UseCors("AllowNextJs"); 
 
 app.UseAuthentication();
 app.UseAuthorization();

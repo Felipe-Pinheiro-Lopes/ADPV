@@ -2,20 +2,25 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  // Tenta pegar o token dos cookies (LocalStorage não funciona no middleware)
   const token = request.cookies.get('token')?.value
 
-  // Se o usuário tenta acessar /usuarios sem estar logado
-  if (request.nextUrl.pathname.startsWith('/usuarios')) {
-    if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
+  // Lista de rotas que exigem login
+  const rotasProtegidas = ['/usuarios', '/estoque', '/dashboard']
+
+  const path = request.nextUrl.pathname
+
+  // Verifica se a rota atual começa com alguma das rotas protegidas
+  const ehRotaProtegida = rotasProtegidas.some(rota => path.startsWith(rota))
+
+  if (ehRotaProtegida && !token) {
+    // Se não está logado, manda para a tela de login (raiz '/')
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
   return NextResponse.next()
 }
 
-// Configura em quais caminhos o middleware deve agir
 export const config = {
-  matcher: ['/usuarios/:path*'],
+  // Adicionamos as novas rotas no matcher para o Next.js observar
+  matcher: ['/usuarios/:path*', '/estoque/:path*', '/dashboard/:path*'],
 }

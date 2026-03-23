@@ -7,7 +7,10 @@ namespace API.Models
         public int FornecedorId { get; set; }
         public int TipoId { get; set; }
 
-        // Relacionamento: Um produto tem muitas variações
+        // ADICIONE ESTAS LINHAS ABAIXO:
+        public virtual Tipo? Tipo { get; set; } 
+        public virtual Fornecedor? Fornecedor { get; set; }
+
         public List<ProdutoVariacao> Variacoes { get; set; } = new();
     }
 }

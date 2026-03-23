@@ -1,8 +1,9 @@
 namespace API.Models
 {
-    public class Tipo
-    {
+    public class Tipo {
         public int Id { get; set; }
         public string Nome { get; set; } = string.Empty;
+        public string Codigo { get; set; } = string.Empty; // Ex: CAT-001
+        public string Descricao { get; set; } = string.Empty; // Novo
     }
 }
