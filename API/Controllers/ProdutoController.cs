@@ -24,29 +24,41 @@ namespace API.Controllers
         {
             try 
             {
-                // 1. Criar o objeto principal do Produto
                 var novoProduto = new Produto
                 {
                     Nome = dto.Nome,
                     FornecedorId = dto.FornecedorId,
-                    TipoId = dto.TipoId
+                    TipoId = dto.TipoId,
+                    DataCadastro = DateTime.UtcNow
                 };
 
                 _context.Produtos.Add(novoProduto);
-                await _context.SaveChangesAsync(); // Salva para gerar o ID do produto
+                await _context.SaveChangesAsync();
 
-                // 2. Criar as variações vinculadas ao ID gerado
                 foreach (var v in dto.Variacoes)
                 {
                     var variacao = new ProdutoVariacao
                     {
-                        ProdutoId = novoProduto.Id, // Vínculo crucial
+                        ProdutoId = novoProduto.Id,
                         Tamanho = v.Tamanho,
                         ValorCompra = v.ValorCompra,
                         ValorVenda = v.ValorVenda,
-                        Quantidade = v.Quantidade
+                        Quantidade = v.Quantidade,
+                        DataCadastro = DateTime.UtcNow
                     };
                     _context.ProdutoVariacoes.Add(variacao);
+                    await _context.SaveChangesAsync();
+
+                    // Registrar entrada no estoque
+                    var movimentacao = new MovimentacaoEstoque
+                    {
+                        ProdutoVariacaoId = variacao.Id,
+                        Quantidade = v.Quantidade,
+                        Tipo = "Entrada",
+                        Data = DateTime.UtcNow,
+                        Observacao = $"Cadastro do produto {novoProduto.Nome}"
+                    };
+                    _context.MovimentacoesEstoque.Add(movimentacao);
                 }
 
                 await _context.SaveChangesAsync();
@@ -64,7 +76,6 @@ namespace API.Controllers
         {
             try
             {
-                // 1. Busca o produto incluindo as variações atuais
                 var produtoExistente = await _context.Produtos
                     .Include(p => p.Variacoes)
                     .FirstOrDefaultAsync(p => p.Id == id);
@@ -72,26 +83,35 @@ namespace API.Controllers
                 if (produtoExistente == null)
                     return NotFound(new { message = "Produto não encontrado." });
 
-                // 2. Atualiza dados básicos do Produto
                 produtoExistente.Nome = dto.Nome;
                 produtoExistente.FornecedorId = dto.FornecedorId;
                 produtoExistente.TipoId = dto.TipoId;
 
-                // 3. Sincroniza as Variações: Remove as antigas do banco
                 _context.ProdutoVariacoes.RemoveRange(produtoExistente.Variacoes);
 
-                // 4. Adiciona a nova grade enviada pelo Front-end
                 foreach (var v in dto.Variacoes)
                 {
-                    var novaVariacao = new ProdutoVariacao
+                    var variacao = new ProdutoVariacao
                     {
                         ProdutoId = id,
                         Tamanho = v.Tamanho,
                         ValorCompra = v.ValorCompra,
                         ValorVenda = v.ValorVenda,
-                        Quantidade = v.Quantidade
+                        Quantidade = v.Quantidade,
+                        DataCadastro = DateTime.UtcNow
                     };
-                    _context.ProdutoVariacoes.Add(novaVariacao);
+                    _context.ProdutoVariacoes.Add(variacao);
+                    await _context.SaveChangesAsync();
+
+                    var movimentacao = new MovimentacaoEstoque
+                    {
+                        ProdutoVariacaoId = variacao.Id,
+                        Quantidade = v.Quantidade,
+                        Tipo = "Entrada",
+                        Data = DateTime.UtcNow,
+                        Observacao = $"Atualização do produto {produtoExistente.Nome}"
+                    };
+                    _context.MovimentacoesEstoque.Add(movimentacao);
                 }
 
                 await _context.SaveChangesAsync();
@@ -116,10 +136,7 @@ namespace API.Controllers
                 if (produto == null)
                     return NotFound(new { message = "Produto não encontrado." });
 
-                // Remove as variações primeiro (caso o Cascade Delete não esteja no banco)
                 _context.ProdutoVariacoes.RemoveRange(produto.Variacoes);
-                
-                // Remove o produto
                 _context.Produtos.Remove(produto);
 
                 await _context.SaveChangesAsync();
@@ -132,12 +149,33 @@ namespace API.Controllers
         }
 
         [HttpGet("listar")]
-        public async Task<ActionResult<IEnumerable<Produto>>> GetProdutos()
+        public async Task<ActionResult<IEnumerable<ProdutoListDto>>> GetProdutos()
         {
-            return await _context.Produtos
+            var produtos = await _context.Produtos
                 .Include(p => p.Variacoes)
                 .Include(p => p.Tipo) 
+                .Include(p => p.Fornecedor)
+                .Select(p => new ProdutoListDto
+                {
+                    Id = p.Id,
+                    Nome = p.Nome,
+                    FornecedorId = p.FornecedorId,
+                    TipoId = p.TipoId,
+                    TipoNome = p.Tipo != null ? p.Tipo.Nome : null,
+                    FornecedorNome = p.Fornecedor != null ? p.Fornecedor.Nome : null,
+                    Variacoes = p.Variacoes.Select(v => new VariacaoListDto
+                    {
+                        Id = v.Id,
+                        ProdutoId = v.ProdutoId,
+                        Tamanho = v.Tamanho,
+                        ValorCompra = v.ValorCompra,
+                        ValorVenda = v.ValorVenda,
+                        Quantidade = v.Quantidade
+                    }).ToList()
+                })
                 .ToListAsync();
-        } //
+
+            return Ok(produtos);
+        }
     }
 }

@@ -1,12 +1,47 @@
 services:
-  pgadmin:
-      image: dpage/pgadmin4
-      container_name: pgadmin-apdv
-      restart: always
-      environment:
-        PGADMIN_DEFAULT_EMAIL: admin@admin.com
-        PGADMIN_DEFAULT_PASSWORD: admin
-      ports:
-        - "8080:80"
+  postgres:
+    image: postgres:17
+    container_name: APDV-db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: APDV
+    ports:
+      - "5490:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
-      
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin-apdv
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: apdv-api
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=APDV;Username=admin;Password=admin
+    ports:
+      - "5145:80"
+    depends_on:
+      - postgres
+    volumes:
+      - ./:/src
+
+volumes:
+  postgres_data:
+  pgadmin_data:

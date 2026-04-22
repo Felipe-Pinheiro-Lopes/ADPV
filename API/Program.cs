@@ -5,6 +5,11 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
+// Suprimir warnings de migração pendente
+AppContext.SetSwitch("Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Configuração do Banco
@@ -41,7 +46,13 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = null;
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -67,7 +78,16 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-var app = builder.Build(); 
+var app = builder.Build();
+
+// Ignorar migracao automatica - assume banco ja configurado
+// using (var scope = app.Services.CreateScope())
+// {
+//     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+//     db.Database.Migrate();
+// }
+
+// --- 4. ORDEM DOS MIDDLEWARES (CRUCIAL) ---
 
 // --- 4. ORDEM DOS MIDDLEWARES (CRUCIAL) ---
 

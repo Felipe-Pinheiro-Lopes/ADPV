@@ -6,6 +6,6 @@ public class UserUpdateDto {
     public string Email { get; set; } = string.Empty;
     public string? Senha { get; set; } // Adicionei para o Register não quebrar
     public string Role { get; set; } = "User"; // Adicionei para salvar o cargo
-    public int? Telefone { get; set; }
+    public long? Telefone { get; set; }
     public DateTime Data_Nasc { get; set; }
 }
