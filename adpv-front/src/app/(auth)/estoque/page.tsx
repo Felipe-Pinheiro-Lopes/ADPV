@@ -3,11 +3,19 @@ import { useState, useEffect, useMemo } from 'react'
 import ModalProduto from '@/src/components/ModalProduto' 
 import { Plus, Pencil, Trash2, Package, Search, AlertCircle } from 'lucide-react'
 
+interface Produto {
+  Id: number;
+  Nome: string;
+  TipoNome?: string;
+  FornecedorNome?: string;
+  Variacoes: Array<{ Id: number; Tamanho: string; ValorVenda: number; Quantidade: number }>;
+}
+
 export default function EstoquePage() {
-  const [produtos, setProdutos] = useState([])
+  const [produtos, setProdutos] = useState<Produto[]>([])
   const [busca, setBusca] = useState('') 
   const [showModal, setShowModal] = useState(false)
-  const [produtoParaEditar, setProdutoParaEditar] = useState(null)
+  const [produtoParaEditar, setProdutoParaEditar] = useState<Produto | null>(null)
 
   const formatarMoeda = (valor: number) => {
     return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -28,7 +36,6 @@ export default function EstoquePage() {
     }
   }
 
-  // --- FUNÇÃO DE EXCLUIR CORRIGIDA ---
   const excluirProduto = async (id: number, nome: string) => {
     if (confirm(`Tem certeza que deseja remover o produto "${nome}"?`)) {
       const token = localStorage.getItem('token')
@@ -39,8 +46,7 @@ export default function EstoquePage() {
         })
 
         if (res.ok) {
-          // Remove o item da lista localmente para o usuário ver a mudança na hora
-          setProdutos(produtos.filter((p: any) => p.id !== id))
+          setProdutos(produtos.filter((p) => p.Id !== id))
         } else {
           alert("Não foi possível excluir o produto. Verifique se ele possui dependências.")
         }
@@ -50,12 +56,12 @@ export default function EstoquePage() {
     }
   }
 
-  const produtosFiltrados = useMemo(() => {
-    return produtos.filter((p: any) => 
-      p.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      p.tipo?.nome?.toLowerCase().includes(busca.toLowerCase())
-    )
-  }, [busca, produtos])
+   const produtosFiltrados = useMemo(() => {
+     return produtos.filter((p) => 
+       p.Nome.toLowerCase().includes(busca.toLowerCase()) ||
+       (p.TipoNome && p.TipoNome.toLowerCase().includes(busca.toLowerCase()))
+     )
+   }, [busca, produtos])
 
   useEffect(() => { carregarDados() }, [])
 
@@ -102,35 +108,35 @@ export default function EstoquePage() {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {produtosFiltrados.length > 0 ? (
-                  produtosFiltrados.map((prod: any) => (
-                    <tr key={prod.id} className="group hover:bg-slate-50/80 transition-all">
+                  produtosFiltrados.map((prod) => (
+                    <tr key={prod.Id} className="group hover:bg-slate-50/80 transition-all">
                       <td className="px-8 py-10">
                         <div className="flex items-center gap-6">
                           <div className="w-16 h-16 bg-orange-100/50 rounded-[22px] flex items-center justify-center text-[#EF5B25] group-hover:scale-110 transition-transform">
                               <Package size={32} />
                           </div>
-                          <div>
-                            <div className="font-bold text-[#1e1b4b] text-2xl mb-1">{prod.nome}</div>
-                            <span className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold uppercase tracking-wider">
-                              {prod.tipo?.nome || "Geral"}
-                            </span>
-                          </div>
+                             <div>
+                               <div className="font-bold text-[#1e1b4b] text-2xl mb-1">{prod.Nome}</div>
+                               <span className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                                 {prod.TipoNome || "Geral"}
+                               </span>
+                             </div>
                         </div>
                       </td>
                       <td className="px-8 py-10">
                         <div className="flex flex-wrap gap-3">
-                          {prod.variacoes?.length > 0 ? (
-                            prod.variacoes.map((v: any) => (
-                              <div key={v.id} className="bg-white border border-slate-200 pl-4 pr-5 py-3 rounded-2xl flex items-center gap-5 shadow-sm hover:border-orange-200 transition-colors">
-                                <span className="font-black text-[#EF5B25] text-lg">{v.tamanho}</span>
+                          {prod.Variacoes && prod.Variacoes.length > 0 ? (
+                            prod.Variacoes.map((v) => (
+                              <div key={v.Id} className="bg-white border border-slate-200 pl-4 pr-5 py-3 rounded-2xl flex items-center gap-5 shadow-sm hover:border-orange-200 transition-colors">
+                                <span className="font-black text-[#EF5B25] text-lg">{v.Tamanho}</span>
                                 <div className="h-8 w-[1px] bg-slate-100"></div>
                                 <div className="flex flex-col">
                                   <span className="text-[10px] text-slate-400 font-black uppercase">Venda</span>
-                                  <span className="text-sm font-bold text-emerald-600">{formatarMoeda(v.valorVenda)}</span>
+                                  <span className="text-sm font-bold text-emerald-600">{formatarMoeda(v.ValorVenda)}</span>
                                 </div>
                                 <div className="flex flex-col">
                                   <span className="text-[10px] text-slate-400 font-black uppercase">Qtd</span>
-                                  <span className="text-sm font-bold text-slate-700">{v.quantidade} <small className="text-slate-400 font-medium">un</small></span>
+                                  <span className="text-sm font-bold text-slate-700">{v.Quantidade} <small className="text-slate-400 font-medium">un</small></span>
                                 </div>
                               </div>
                             ))
@@ -149,7 +155,7 @@ export default function EstoquePage() {
                             <Pencil size={20} />
                           </button>
                           <button 
-                            onClick={() => excluirProduto(prod.id, prod.nome)}
+                            onClick={() => excluirProduto(prod.Id, prod.Nome)}
                             className="bg-white text-slate-400 p-3 rounded-xl border border-slate-100 hover:text-red-500 hover:border-red-100 hover:shadow-md transition-all"
                             title="Excluir"
                           >

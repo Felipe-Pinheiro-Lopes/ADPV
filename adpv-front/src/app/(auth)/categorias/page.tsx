@@ -3,14 +3,14 @@ import { useEffect, useState } from 'react'
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react'
 
 export default function CategoriasPage() {
-  const [categorias, setCategorias] = useState([])
+  const [categorias, setCategorias] = useState<Array<{Id: number; Nome: string; Codigo: string; Descricao: string}>>([])
   const [nome, setNome] = useState('')
   const [codigo, setCodigo] = useState('')
   const [descricao, setDescricao] = useState('')
 
   const carregarCategorias = async () => {
     const token = localStorage.getItem('token')
-    const res = await fetch('http://localhost:5145/api/Tipo', { // Ajuste para sua rota de listagem
+    const res = await fetch('http://localhost:5145/api/Tipo', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     if (res.ok) {
@@ -19,7 +19,9 @@ export default function CategoriasPage() {
     }
   }
 
-  useEffect(() => { carregarCategorias() }, [])
+  useEffect(() => { 
+    carregarCategorias()
+  }, [])
 
   const salvarCategoria = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,13 +32,23 @@ export default function CategoriasPage() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}` 
       },
-      body: JSON.stringify({ nome, codigo, descricao })
+      body: JSON.stringify({ Nome: nome, Codigo: codigo, Descricao: descricao })
     })
 
     if (res.ok) {
       setNome(''); setCodigo(''); setDescricao('');
       carregarCategorias()
     }
+  }
+
+  const excluirCategoria = async (id: number) => {
+    if (!confirm('Excluir esta categoria?')) return
+    const token = localStorage.getItem('token')
+    const res = await fetch(`http://localhost:5145/api/Tipo/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (res.ok) carregarCategorias()
   }
 
   return (
@@ -106,15 +118,20 @@ export default function CategoriasPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 text-black">
-              {categorias.map((cat: any) => (
-                <tr key={cat.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 text-[#EF5B25] font-bold text-sm tracking-tight">{cat.codigo}</td>
-                  <td className="px-6 py-4 font-bold text-gray-800">{cat.nome}</td>
-                  <td className="px-6 py-4 text-gray-500 text-sm max-w-[200px] truncate">{cat.descricao}</td>
+              {categorias.map((cat) => (
+                <tr key={cat.Id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 text-[#EF5B25] font-bold text-sm tracking-tight">{cat.Codigo}</td>
+                  <td className="px-6 py-4 font-bold text-gray-800">{cat.Nome}</td>
+                  <td className="px-6 py-4 text-gray-500 text-sm max-w-[200px] truncate">{cat.Descricao}</td>
                   <td className="px-6 py-4">
                     <div className="flex justify-center gap-4">
                       <button className="text-gray-400 hover:text-blue-600 transition-colors"><Pencil size={18} /></button>
-                      <button className="text-gray-400 hover:text-red-600 transition-colors"><Trash2 size={18} /></button>
+                      <button 
+                        onClick={() => excluirCategoria(cat.Id)} 
+                        className="text-gray-400 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </td>
                 </tr>

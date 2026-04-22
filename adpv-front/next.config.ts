@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  devIndicators: false // Remove o badge "Next.js" no canto inferior esquerdo
 };
 
 export default nextConfig;

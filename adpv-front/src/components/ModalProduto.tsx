@@ -17,67 +17,101 @@ export default function ModalProduto({ onClose, onSucesso, dadosEdicao }: ModalP
   const [categorias, setCategorias] = useState([])
   const [fornecedores, setFornecedores] = useState([])
 
-  useEffect(() => {
-    const token = localStorage.getItem('token')
-    const headers = { 'Authorization': `Bearer ${token}` }
+   useEffect(() => {
+     const token = localStorage.getItem('token')
+     if (!token) {
+       console.error('Token não encontrado')
+       return
+     }
+     const headers = { 'Authorization': `Bearer ${token}` }
 
-    fetch('http://localhost:5145/api/Tipo', { headers })
-      .then(res => res.json())
-      .then(setCategorias)
-      .catch(err => console.error("Erro tipos:", err))
+     fetch('http://localhost:5145/api/Tipo', { headers })
+       .then(res => {
+         if (!res.ok) throw new Error(`Erro ${res.status}`)
+         return res.json()
+       })
+       .then(data => {
+         console.log('Categorias carregadas:', data)
+         setCategorias(data)
+       })
+       .catch(err => console.error("Erro tipos:", err))
 
-    fetch('http://localhost:5145/api/Fornecedor', { headers })
-      .then(res => res.json())
-      .then(setFornecedores)
-      .catch(err => console.error("Erro fornecedores:", err))
+     fetch('http://localhost:5145/api/Fornecedor', { headers })
+       .then(res => {
+         if (!res.ok) throw new Error(`Erro ${res.status}`)
+         return res.json()
+       })
+       .then(data => {
+         console.log('Fornecedores carregados:', data)
+         setFornecedores(data)
+       })
+       .catch(err => console.error("Erro fornecedores:", err))
 
-    if (dadosEdicao) {
-      setNome(dadosEdicao.nome)
-      setTipoId(dadosEdicao.tipoId?.toString() || '')
-      setFornecedorId(dadosEdicao.fornecedorId?.toString() || '')
-      setVariacoes(dadosEdicao.variacoes || [])
-    }
-  }, [dadosEdicao])
+     if (dadosEdicao) {
+       setNome(dadosEdicao.nome)
+       setTipoId(dadosEdicao.tipoId?.toString() || '')
+       setFornecedorId(dadosEdicao.fornecedorId?.toString() || '')
+       setVariacoes(dadosEdicao.variacoes || [])
+     }
+   }, [dadosEdicao])
 
-  const handleSalvar = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const token = localStorage.getItem('token');
-    
-    if (!tipoId || !fornecedorId) {
-      alert("Por favor, selecione uma categoria e um fornecedor.");
-      return;
-    }
+   const handleSalvar = async (e: React.FormEvent) => {
+     e.preventDefault();
+     const token = localStorage.getItem('token');
+     
+     if (!token) {
+       alert("Token não encontrado. Faça login novamente.");
+       return;
+     }
+     
+     if (!tipoId || !fornecedorId) {
+       alert("Por favor, selecione uma categoria e um fornecedor.");
+       return;
+     }
 
-    const metodo = dadosEdicao ? 'PUT' : 'POST';
-    const url = dadosEdicao 
-        ? `http://localhost:5145/api/Produto/${dadosEdicao.id}` 
-        : 'http://localhost:5145/api/Produto/cadastrar';
+     const metodo = dadosEdicao ? 'PUT' : 'POST';
+     const url = dadosEdicao 
+         ? `http://localhost:5145/api/Produto/${dadosEdicao.id}` 
+         : 'http://localhost:5145/api/Produto/cadastrar';
 
-    try {
-      const res = await fetch(url, {
-        method: metodo,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        },
-        body: JSON.stringify({
-          nome,
-          tipoId: parseInt(tipoId),
-          fornecedorId: parseInt(fornecedorId),
-          variacoes
-        })
-      });
+     try {
+       const payload = {
+           Nome: nome,
+           TipoId: parseInt(tipoId),
+           FornecedorId: parseInt(fornecedorId),
+           Variacoes: variacoes.map(v => ({
+             Tamanho: v.tamanho,
+             ValorCompra: v.valorCompra,
+             ValorVenda: v.valorVenda,
+             Quantidade: v.quantidade
+           }))
+         }
+         
+       console.log('Enviando payload:', payload)
+       
+       const res = await fetch(url, {
+         method: metodo,
+         headers: { 
+           'Content-Type': 'application/json',
+           'Authorization': `Bearer ${token}` 
+         },
+         body: JSON.stringify(payload)
+       });
 
-      if (res.ok) {
-        onSucesso();
-        onClose();
-      } else {
-        alert("Erro ao salvar produto. Verifique os dados.");
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+       const data = await res.json();
+       
+       if (res.ok) {
+         alert(dadosEdicao ? 'Produto atualizado com sucesso!' : 'Produto cadastrado com sucesso!')
+         onSucesso();
+         onClose();
+       } else {
+         alert("Erro ao salvar: " + (data.message || JSON.stringify(data)))
+       }
+     } catch (err: any) {
+       console.error(err);
+       alert("Erro na requisição: " + err.message);
+     }
+   };
 
   const addVariacao = () => {
     setVariacoes([...variacoes, { tamanho: '', valorCompra: 0, valorVenda: 0, quantidade: 0 }])
@@ -127,17 +161,17 @@ export default function ModalProduto({ onClose, onSucesso, dadosEdicao }: ModalP
               <label className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.1em] text-slate-400 ml-1">
                 <Tag size={14} /> Categoria / Tipo
               </label>
-              <select 
-                value={tipoId} 
-                onChange={e => setTipoId(e.target.value)} 
-                className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-[#EF5B25] focus:bg-white outline-none transition-all text-slate-700 font-semibold appearance-none"
-                required
-              >
-                <option value="">Selecione...</option>
-                {categorias.map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.nome}</option>
-                ))}
-              </select>
+               <select 
+                 value={tipoId} 
+                 onChange={e => setTipoId(e.target.value)} 
+                 className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-[#EF5B25] focus:bg-white outline-none transition-all text-slate-700 font-semibold appearance-none"
+                 required
+               >
+                 <option value="">Selecione...</option>
+                 {categorias.map((c: any) => (
+                   <option key={c.Id} value={c.Id}>{c.Nome}</option>
+                 ))}
+               </select>
             </div>
           </div>
 
@@ -145,17 +179,17 @@ export default function ModalProduto({ onClose, onSucesso, dadosEdicao }: ModalP
             <label className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.1em] text-slate-400 ml-1">
               <Users size={14} /> Fornecedor Origem
             </label>
-            <select 
-              value={fornecedorId} 
-              onChange={e => setFornecedorId(e.target.value)} 
-              className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-[#EF5B25] focus:bg-white outline-none transition-all text-slate-700 font-semibold appearance-none"
-              required
-            >
-              <option value="">Escolha um fornecedor cadastrado</option>
-              {fornecedores.map((f: any) => (
-                <option key={f.id} value={f.id}>{f.nome}</option>
-              ))}
-            </select>
+             <select 
+               value={fornecedorId} 
+               onChange={e => setFornecedorId(e.target.value)} 
+               className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-[#EF5B25] focus:bg-white outline-none transition-all text-slate-700 font-semibold appearance-none"
+               required
+             >
+               <option value="">Escolha um fornecedor cadastrado</option>
+               {fornecedores.map((f: any) => (
+                 <option key={f.Id} value={f.Id}>{f.Nome}</option>
+               ))}
+             </select>
           </div>
 
           {/* Área da Grade de Variações */}

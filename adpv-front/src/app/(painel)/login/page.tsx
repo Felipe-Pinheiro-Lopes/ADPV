@@ -21,7 +21,7 @@ export default function LoginPage() {
       if (response.ok) {
         const data = await response.json()
         localStorage.setItem('token', data.token)
-        // Salva no cookie para o middleware
+        localStorage.setItem('userName', data.user)
         document.cookie = `token=${data.token}; path=/; max-age=7200; SameSite=Lax`
         router.push('/dashboard')
       } else {

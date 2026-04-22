@@ -1,29 +1,30 @@
 'use client'
 import { useEffect, useState } from 'react'
-import LogoutButton from '@/src/components/LogoutButton'
 import { jwtDecode } from 'jwt-decode'
 import { useRouter } from 'next/navigation'
 
+interface Usuario {
+  Id: number;
+  Nome: string;
+  Email: string;
+  Role: string;
+}
+
 export default function UsuariosPage() {
-  const [usuarios, setUsuarios] = useState([])
-  const [userRole, setUserRole] = useState('')
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const router = useRouter()
   const [carregando, setCarregando] = useState(true)
-  // Estado para impedir a renderização de componentes sensíveis antes da validação
   const [autorizado, setAutorizado] = useState(false)
 
-  // Estados do Modal e Controle de Edição
   const [isModalAberto, setIsModalAberto] = useState(false)
   const [isEditando, setIsEditando] = useState(false)
   const [idParaEditar, setIdParaEditar] = useState<number | null>(null)
 
-  // Estados dos Campos do Formulário
   const [novoNome, setNovoNome] = useState('')
   const [novoEmail, setNovoEmail] = useState('')
   const [novaSenha, setNovaSenha] = useState('')
   const [novaRole, setNovaRole] = useState('User')
 
-  // --- FUNÇÃO PARA CARREGAR DADOS DA API ---
   const carregarUsuarios = async () => {
     const token = localStorage.getItem('token')
     try {
@@ -34,62 +35,52 @@ export default function UsuariosPage() {
         const data = await res.json()
         setUsuarios(data)
       }
-    } catch (error) {
-      console.error("Erro ao carregar usuários", error)
+    } catch (err) {
+      console.error("Erro ao carregar usuários", err)
     }
   }
 
-  // --- HOOK DE SEGURANÇA E VALIDAÇÃO DE ACESSO ---
   useEffect(() => {
     const token = localStorage.getItem('token')
     
-    // Se não existir token, redireciona imediatamente
     if (!token) {
       router.push('/login')
       return
     }
 
     try {
-      const decoded: any = jwtDecode(token)
+      const decoded = jwtDecode<{exp: number; role?: string; "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string}>(token)
       
-      // VERIFICAÇÃO DE EXPIRAÇÃO: Evita que tokens antigos no cache permitam acesso
       const agora = Date.now() / 1000;
       if (decoded.exp < agora) {
-        localStorage.removeItem('token'); // Limpa o "lixo" do navegador
+        localStorage.removeItem('token');
         router.push('/login');
-        return;
+        return
       }
 
-      // Captura a Role (ajustado para o padrão comum do ASP.NET Core)
       const role = decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || decoded.role
       
-      // Bloqueio de nível de Role: Se não for Admin, volta para o Dashboard
       if (role !== 'Admin') {
         router.push('/dashboard')
         return
       }
 
-      setUserRole(role)
-      setAutorizado(true) // Libera a visualização da página
-      setCarregando(false) 
+      setAutorizado(true)
+      setCarregando(false)
       carregarUsuarios()
-    } catch (error) {
-      // Se o token estiver corrompido, limpa e expulsa o utilizador
+    } catch {
       localStorage.removeItem('token');
       router.push('/login')
     }
   }, [router])
 
-  // --- FUNÇÕES DE AÇÃO (CRUD) ---
-
-  const abrirEdicao = (user: any) => {
+  const abrirEdicao = (user: Usuario) => {
     setIsEditando(true);
-    setIdParaEditar(user.id);
-    setNovoNome(user.nome);
-    setNovoEmail(user.email);
-    const cargoAtual = user.role || user.Role || 'User';
-    setNovaRole(cargoAtual);
-    setNovaSenha(''); // Senha sempre vazia ao abrir edição
+    setIdParaEditar(user.Id);
+    setNovoNome(user.Nome);
+    setNovoEmail(user.Email);
+    setNovaRole(user.Role || 'User');
+    setNovaSenha('');
     setIsModalAberto(true);
   };
 
@@ -113,15 +104,14 @@ export default function UsuariosPage() {
     
     const metodo = isEditando ? 'PUT' : 'POST'
 
-    const dadosParaEnviar: any = {
-      nome: novoNome,
-      email: novoEmail,
-      role: novaRole
+    const dadosParaEnviar: { Nome: string; Email: string; Role: string; Senha?: string } = {
+      Nome: novoNome,
+      Email: novoEmail,
+      Role: novaRole
     }
 
-    // Só envia a senha se for um novo cadastro ou se o campo de edição foi preenchido
     if (novaSenha.trim() !== "") {
-      dadosParaEnviar.senha = novaSenha
+      dadosParaEnviar.Senha = novaSenha
     } else if (!isEditando) {
       alert("A senha é obrigatória para novos usuários.")
       return
@@ -145,7 +135,7 @@ export default function UsuariosPage() {
         const erroTexto = await response.text()
         alert(`Erro ao salvar: ${erroTexto || "Verifique os dados."}`)
       }
-    } catch (err) {
+    } catch {
       alert("Erro de conexão com o servidor.")
     }
   }
@@ -159,12 +149,10 @@ export default function UsuariosPage() {
     })
     
     if (response.ok) {
-      setUsuarios(usuarios.filter((u: any) => u.id !== id))
+      setUsuarios(usuarios.filter((u) => u.Id !== id))
     }
   }
 
-  // --- RENDERIZAÇÃO CONDICIONAL DE SEGURANÇA ---
-  // Impede o "flash" de conteúdo antes da validação do token ser concluída
   if (carregando || !autorizado) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
@@ -180,7 +168,6 @@ export default function UsuariosPage() {
     <div className="p-8">
       <header className="flex justify-between items-center mb-8">
         <h2 className="text-2xl font-bold text-gray-800">Gerenciamento de Usuários</h2>
-        <LogoutButton />
       </header>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -204,10 +191,10 @@ export default function UsuariosPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {usuarios.map((user: any) => (
-              <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4 font-medium text-gray-800">{user.nome}</td>
-                <td className="px-6 py-4 text-gray-500 text-sm">{user.email}</td>
+            {usuarios.map((user) => (
+              <tr key={user.Id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4 font-medium text-gray-800">{user.Nome}</td>
+                <td className="px-6 py-4 text-gray-500 text-sm">{user.Email}</td>
                 <td className="px-6 py-4 text-right space-x-3">
                   <button 
                     onClick={() => abrirEdicao(user)} 
@@ -216,7 +203,7 @@ export default function UsuariosPage() {
                     Editar
                   </button>
                   <button 
-                    onClick={() => excluirUsuario(user.id)} 
+                    onClick={() => excluirUsuario(user.Id)} 
                     className="text-red-400 hover:text-red-600 font-medium"
                   >
                     Excluir
@@ -228,7 +215,6 @@ export default function UsuariosPage() {
         </table>
       </div>
 
-      {/* --- MODAL DE CADASTRO / EDIÇÃO --- */}
       {isModalAberto && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">

@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Building2, FileText, User, Phone, Mail, MapPin } from 'lucide-react'
+import { Phone, Mail, MapPin } from 'lucide-react'
 
 export default function FornecedoresPage() {
   const [nome, setNome] = useState('')
@@ -15,12 +15,12 @@ export default function FornecedoresPage() {
     
     const token = localStorage.getItem('token');
     const novoFornecedor = { 
-        nome, 
-        cnpj, 
-        contato, 
-        telefone, 
-        email, 
-        endereco 
+        Nome: nome, 
+        Cnpj: cnpj, 
+        Contato: contato, 
+        Telefone: telefone, 
+        Email: email, 
+        Endereco: endereco 
     };
 
     try {

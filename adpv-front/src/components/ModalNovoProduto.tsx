@@ -46,10 +46,15 @@ export default function ModalNovoProduto({ onClose, onSucesso }: ModalProps) {
     const token = localStorage.getItem('token')
     
     const payload = {
-      nome,
-      tipoId: parseInt(tipoId),
-      fornecedorId: parseInt(fornecedorId),
-      variacoes
+      Nome: nome,
+      TipoId: parseInt(tipoId),
+      FornecedorId: parseInt(fornecedorId),
+      Variacoes: variacoes.map(v => ({
+        Tamanho: v.tamanho,
+        ValorCompra: v.valorCompra,
+        ValorVenda: v.valorVenda,
+        Quantidade: v.quantidade
+      }))
     }
 
     const res = await fetch('http://localhost:5145/api/Produto/cadastrar', {
