@@ -1,0 +1,25 @@
+# Build artifacts
+API/bin/
+API/obj/
+adpv-front/.next/
+adpv-front/node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+API/appsettings.Development.json
