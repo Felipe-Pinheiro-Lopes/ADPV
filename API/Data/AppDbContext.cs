@@ -81,6 +81,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<MovimentacaoEstoque>().Property(m => m.Data).HasColumnName("mov_dh_data");
         modelBuilder.Entity<MovimentacaoEstoque>().Property(m => m.Observacao).HasColumnName("mov_ds_observacao");
 
+        modelBuilder.Entity<PedidoItem>().ToTable("tbpedido_item");
         modelBuilder.Entity<PedidoItem>().HasKey(i => i.Id);
         modelBuilder.Entity<PedidoItem>().Property(i => i.Id).HasColumnName("item_id");
         modelBuilder.Entity<PedidoItem>().Property(i => i.PedidoId).HasColumnName("ped_id");
