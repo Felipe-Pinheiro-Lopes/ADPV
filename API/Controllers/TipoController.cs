@@ -48,5 +48,37 @@ namespace API.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { message = "Removido com sucesso" });
         }
+
+        // PUT: api/Tipo/5
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Atualizar(int id, [FromBody] Tipo tipoAtualizado)
+        {
+            if (id != tipoAtualizado.Id)
+            {
+                return BadRequest(new { message = "ID não corresponde à categoria." });
+            }
+
+            var tipoExistente = await _context.Tipos.FindAsync(id);
+            if (tipoExistente == null)
+            {
+                return NotFound();
+            }
+
+            // Atualiza os campos
+            tipoExistente.Nome = tipoAtualizado.Nome;
+            tipoExistente.Codigo = tipoAtualizado.Codigo;
+            tipoExistente.Descricao = tipoAtualizado.Descricao;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Categoria atualizada com sucesso!", data = tipoExistente });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = "Erro ao atualizar: " + ex.Message });
+            }
+        }
     }
 }

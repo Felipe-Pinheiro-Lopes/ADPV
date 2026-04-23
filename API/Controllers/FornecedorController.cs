@@ -77,5 +77,40 @@ namespace API.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { message = "Fornecedor removido com sucesso!" });
         }
+
+        // PUT: api/Fornecedor/5
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Atualizar(int id, [FromBody] Fornecedor fornecedorAtualizado)
+        {
+            if (id != fornecedorAtualizado.Id)
+            {
+                return BadRequest(new { message = "ID não corresponde ao fornecedor." });
+            }
+
+            var fornecedorExistente = await _context.Fornecedores.FindAsync(id);
+            if (fornecedorExistente == null)
+            {
+                return NotFound();
+            }
+
+            // Atualiza os campos
+            fornecedorExistente.Nome = fornecedorAtualizado.Nome;
+            fornecedorExistente.Cnpj = fornecedorAtualizado.Cnpj;
+            fornecedorExistente.Contato = fornecedorAtualizado.Contato;
+            fornecedorExistente.Telefone = fornecedorAtualizado.Telefone;
+            fornecedorExistente.Email = fornecedorAtualizado.Email;
+            fornecedorExistente.Endereco = fornecedorAtualizado.Endereco;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Fornecedor atualizado com sucesso!", data = fornecedorExistente });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = "Erro ao atualizar: " + ex.Message });
+            }
+        }
     }
 }

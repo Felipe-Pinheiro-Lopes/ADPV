@@ -46,6 +46,7 @@ namespace API.Controllers
                 .Where(i => i.PedidoId == id)
                 .Select(i => new {
                     ProdutoId = i.ProdutoId,
+                    TamanhoId = i.TamanhoId,
                     ProdutoNome = i.ProdutoNome,
                     Quantidade = i.Quantidade,
                     ValorUnitario = i.ValorUnitario
@@ -67,19 +68,27 @@ namespace API.Controllers
                     return BadRequest(new { message = "O pedido deve ter pelo menos um item." });
                 }
 
-                // Verifica se há produto duplicado no mesmo pedido
-                var produtoIds = pedidoDto.Itens.Select(i => i.ProdutoId).ToList();
-                var duplicates = produtoIds.GroupBy(x => x).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                // Verifica se há item duplicado (mesmo produto + mesmo tamanho) no mesmo pedido
+                var produtoIds = pedidoDto.Itens
+                    .Select(i => new { i.ProdutoId, i.TamanhoId })
+                    .ToList();
+                var duplicates = produtoIds
+                    .GroupBy(x => new { x.ProdutoId, x.TamanhoId })
+                    .Where(g => g.Count() > 1)
+                    .Select(g => g.Key)
+                    .ToList();
                 if (duplicates.Any())
                 {
-                    return BadRequest(new { message = $"Produto(s) ID(s) {string.Join(", ", duplicates)} está(ão) duplicado(s) no pedido. Remova as duplicatas." });
+                    var dupStr = string.Join(", ", duplicates.Select(d => $"Produto {d.ProdutoId} (TamanhoId: {d.TamanhoId ?? 0})"));
+                    return BadRequest(new { message = $"Item(s) duplicado(s) no pedido: {dupStr}. Remova as duplicatas." });
                 }
 
                 // Verifica TODAS as quantidades disponíveis ANTES de criar o pedido
                 foreach (var item in pedidoDto.Itens)
                 {
-                    var variacao = await _context.ProdutoVariacoes
-                        .FirstOrDefaultAsync(v => v.ProdutoId == item.ProdutoId);
+                    var variacao = item.TamanhoId.HasValue
+                        ? await _context.ProdutoVariacoes.FindAsync(item.TamanhoId)
+                        : await _context.ProdutoVariacoes.FirstOrDefaultAsync(v => v.ProdutoId == item.ProdutoId);
 
                     if (variacao == null)
                     {
@@ -109,8 +118,9 @@ namespace API.Controllers
                 // Processa os itens
                 foreach (var item in pedidoDto.Itens)
                 {
-                    var variacao = await _context.ProdutoVariacoes
-                        .FirstOrDefaultAsync(v => v.ProdutoId == item.ProdutoId);
+                    var variacao = item.TamanhoId.HasValue
+                        ? await _context.ProdutoVariacoes.FindAsync(item.TamanhoId)
+                        : await _context.ProdutoVariacoes.FirstOrDefaultAsync(v => v.ProdutoId == item.ProdutoId);
 
                     var produtoNome = variacao.Produto?.Nome ?? $"Produto {item.ProdutoId}";
                     variacao.Quantidade -= item.Quantidade;
@@ -119,6 +129,7 @@ namespace API.Controllers
                     {
                         PedidoId = pedido.Id,
                         ProdutoId = item.ProdutoId,
+                        TamanhoId = item.TamanhoId,
                         ProdutoNome = produtoNome,
                         Quantidade = item.Quantidade,
                         ValorUnitario = item.ValorUnitario
@@ -170,8 +181,9 @@ namespace API.Controllers
                     {
                         foreach (var item in itens)
                         {
-                            var variacao = await _context.ProdutoVariacoes
-                                .FirstOrDefaultAsync(v => v.ProdutoId == item.ProdutoId);
+                            var variacao = item.TamanhoId.HasValue
+                                ? await _context.ProdutoVariacoes.FindAsync(item.TamanhoId)
+                                : await _context.ProdutoVariacoes.FirstOrDefaultAsync(v => v.ProdutoId == item.ProdutoId);
 
                             if (variacao != null)
                             {
@@ -194,31 +206,39 @@ namespace API.Controllers
                 // Se status for diferente de Cancelado e não é novo Cancelamento, ajusta o estoque
                 else if (novoStatus != "Cancelado")
                 {
-                    // Busca itens existentes do banco
+                    // Busca itens existentes do banco (agora usando chave composta)
                     var itensAntigos = await _context.PedidoItems
                         .Where(i => i.PedidoId == id)
-                        .ToDictionaryAsync(i => i.ProdutoId, i => i.Quantidade);
+                        .ToListAsync();
+
+                    // Cria um dicionário com chave composto (ProdutoId + TamanhoId)
+                    var itensDict = itensAntigos.ToDictionary(
+                        i => (i.ProdutoId, i.TamanhoId), 
+                        i => i.Quantidade
+                    );
 
                     // Se há novos itens no PUT, processa
                     if (pedidoDto.Itens != null && pedidoDto.Itens.Any())
                     {
                         foreach (var item in pedidoDto.Itens)
                         {
-                            var variacao = await _context.ProdutoVariacoes
-                                .FirstOrDefaultAsync(v => v.ProdutoId == item.ProdutoId);
+                            var variacao = item.TamanhoId.HasValue
+                                ? await _context.ProdutoVariacoes.FindAsync(item.TamanhoId)
+                                : await _context.ProdutoVariacoes.FirstOrDefaultAsync(v => v.ProdutoId == item.ProdutoId);
 
                             if (variacao == null)
                             {
                                 return BadRequest(new { message = $"Produto ID {item.ProdutoId} não encontrado." });
                             }
 
-                            // Calcula diferença
-                            var qtdAntiga = itensAntigos.ContainsKey(item.ProdutoId) ? itensAntigos[item.ProdutoId] : 0;
+                            // Calcula diferença - usa chave composta
+                            var chave = (item.ProdutoId, item.TamanhoId);
+                            var qtdAntiga = itensDict.ContainsKey(chave) ? itensDict[chave] : 0;
                             var diferenca = item.Quantidade - qtdAntiga;
 
                             if (diferenca > 0)
                             {
-                                // Aumentou a quantidade - precisa diminutionar do estoque
+                                // Aumentou a quantidade - precisa diminuir do estoque
                                 if (variacao.Quantidade < diferenca)
                                 {
                                     return BadRequest(new { 
@@ -255,7 +275,7 @@ namespace API.Controllers
 
                             // Atualiza ou cria item
                             var itemExistente = await _context.PedidoItems
-                                .FirstOrDefaultAsync(i => i.PedidoId == id && i.ProdutoId == item.ProdutoId);
+                                .FirstOrDefaultAsync(i => i.PedidoId == id && i.ProdutoId == item.ProdutoId && i.TamanhoId == item.TamanhoId);
 
                             if (itemExistente != null)
                             {
@@ -268,6 +288,7 @@ namespace API.Controllers
                                 {
                                     PedidoId = pedido.Id,
                                     ProdutoId = item.ProdutoId,
+                                    TamanhoId = item.TamanhoId,
                                     ProdutoNome = variacao.Produto?.Nome ?? $"Produto {item.ProdutoId}",
                                     Quantidade = item.Quantidade,
                                     ValorUnitario = item.ValorUnitario
@@ -311,8 +332,9 @@ namespace API.Controllers
 
                     foreach (var item in itens)
                     {
-                        var variacao = await _context.ProdutoVariacoes
-                            .FirstOrDefaultAsync(v => v.ProdutoId == item.ProdutoId);
+                        var variacao = item.TamanhoId.HasValue
+                            ? await _context.ProdutoVariacoes.FindAsync(item.TamanhoId)
+                            : await _context.ProdutoVariacoes.FirstOrDefaultAsync(v => v.ProdutoId == item.ProdutoId);
 
                         if (variacao != null)
                         {

@@ -16,6 +16,9 @@ namespace API.Models
         [Column("prod_id")]
         public int ProdutoId { get; set; }
 
+        [Column("var_id")]
+        public int? TamanhoId { get; set; }
+
         [Column("item_nm_produto")]
         public string ProdutoNome { get; set; } = string.Empty;
 

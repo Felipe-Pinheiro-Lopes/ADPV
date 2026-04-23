@@ -71,7 +71,6 @@ namespace API.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Atualizar(int id, [FromBody] ProdutoCreateDto dto)
         {
             try
@@ -87,7 +86,17 @@ namespace API.Controllers
                 produtoExistente.FornecedorId = dto.FornecedorId;
                 produtoExistente.TipoId = dto.TipoId;
 
-                _context.ProdutoVariacoes.RemoveRange(produtoExistente.Variacoes);
+                // Remove apenas variações que não estão em pedidos
+                var variacoesEmUso = await _context.PedidoItems
+                    .Where(p => p.TamanhoId.HasValue)
+                    .Select(p => p.TamanhoId)
+                    .ToListAsync();
+
+                var variacoesParaRemover = produtoExistente.Variacoes
+                    .Where(v => !variacoesEmUso.Contains(v.Id))
+                    .ToList();
+                
+                _context.ProdutoVariacoes.RemoveRange(variacoesParaRemover);
 
                 foreach (var v in dto.Variacoes)
                 {
