@@ -1,0 +1,54 @@
+# API/ dotnet artifact
+
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+.vs/
+*.userosscache
+*.sln.docstates
+
+# User-specific files
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# IDE
+.idea/
+.vscode/
+
+# Secrets
+appsettings.*.json
+*.pfx
+*.key
+
+# OS
+Thumbs.db
+.DS_Store
