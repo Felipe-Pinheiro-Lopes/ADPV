@@ -10,11 +10,13 @@ using API.Services;
 public class UserController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly INeo4jSyncService _neo4jSyncService;
 
     // O ASP.NET injeta o seu banco de dados aqui automaticamente
-    public UserController(AppDbContext context)
+    public UserController(AppDbContext context, INeo4jSyncService neo4jSyncService)
     {
         _context = context;
+        _neo4jSyncService = neo4jSyncService;
     }
 
     [HttpPost("register")]
@@ -127,5 +129,20 @@ public class UserController : ControllerBase
         _context.SaveChanges();
 
         return Ok(new { message = "Usuário removido com sucesso!" });
+    }
+
+    [HttpPost("sync-neo4j")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SyncNeo4j()
+    {
+        try
+        {
+            await _neo4jSyncService.SyncAllData();
+            return Ok(new { message = "Dados sincronizados com Neo4j com sucesso!" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = $"Erro ao sincronizar: {ex.Message}" });
+        }
     }
 }

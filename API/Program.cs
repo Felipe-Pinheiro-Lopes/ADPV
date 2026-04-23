@@ -1,6 +1,7 @@
 using Microsoft.OpenApi.Models;
 using Microsoft.EntityFrameworkCore;
 using API.Data;
+using API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -15,6 +16,10 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. Configuração do Banco
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// 1.1 Configuração do Neo4j
+builder.Services.AddSingleton<INeo4jService, Neo4jService>();
+builder.Services.AddScoped<INeo4jSyncService, Neo4jSyncService>();
 
 // 2. Configuração do JWT
 // IMPORTANTE: Esta chave deve ser IGUAL à do seu TokenService
