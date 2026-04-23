@@ -17,43 +17,52 @@ export default function ModalProduto({ onClose, onSucesso, dadosEdicao }: ModalP
   const [categorias, setCategorias] = useState([])
   const [fornecedores, setFornecedores] = useState([])
 
-   useEffect(() => {
-     const token = localStorage.getItem('token')
-     if (!token) {
-       console.error('Token não encontrado')
-       return
-     }
-     const headers = { 'Authorization': `Bearer ${token}` }
+useEffect(() => {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        console.error('Token não encontrado')
+        return
+      }
+      const headers = { 'Authorization': `Bearer ${token}` }
 
-     fetch('http://localhost:5145/api/Tipo', { headers })
-       .then(res => {
-         if (!res.ok) throw new Error(`Erro ${res.status}`)
-         return res.json()
-       })
-       .then(data => {
-         console.log('Categorias carregadas:', data)
-         setCategorias(data)
-       })
-       .catch(err => console.error("Erro tipos:", err))
+      fetch('http://localhost:5145/api/Tipo', { headers })
+        .then(res => {
+          if (!res.ok) throw new Error(`Erro ${res.status}`)
+          return res.json()
+        })
+        .then(data => {
+          console.log('Categorias carregadas:', data)
+          setCategorias(data)
+        })
+        .catch(err => console.error("Erro tipos:", err))
 
-     fetch('http://localhost:5145/api/Fornecedor', { headers })
-       .then(res => {
-         if (!res.ok) throw new Error(`Erro ${res.status}`)
-         return res.json()
-       })
-       .then(data => {
-         console.log('Fornecedores carregados:', data)
-         setFornecedores(data)
-       })
-       .catch(err => console.error("Erro fornecedores:", err))
+      fetch('http://localhost:5145/api/Fornecedor', { headers })
+        .then(res => {
+          if (!res.ok) throw new Error(`Erro ${res.status}`)
+          return res.json()
+        })
+        .then(data => {
+          console.log('Fornecedores carregados:', data)
+          setFornecedores(data)
+        })
+        .catch(err => console.error("Erro fornecedores:", err))
+    }, [])
 
-     if (dadosEdicao) {
-       setNome(dadosEdicao.nome)
-       setTipoId(dadosEdicao.tipoId?.toString() || '')
-       setFornecedorId(dadosEdicao.fornecedorId?.toString() || '')
-       setVariacoes(dadosEdicao.variacoes || [])
-     }
-   }, [dadosEdicao])
+    useEffect(() => {
+      if (dadosEdicao) {
+        console.log('Dados edição recebidos:', dadosEdicao)
+        setNome(dadosEdicao.Nome || dadosEdicao.nome || '')
+        setTipoId(dadosEdicao.TipoId?.toString() || dadosEdicao.tipoId?.toString() || '')
+        setFornecedorId(dadosEdicao.FornecedorId?.toString() || dadosEdicao.fornecedorId?.toString() || '')
+        const variacoesData = dadosEdicao.Variacoes || dadosEdicao.variacoes || []
+        setVariacoes(variacoesData.length > 0 ? variacoesData.map((v: any) => ({
+          tamanho: v.Tamanho || v.tamanho || '',
+          valorCompra: v.ValorCompra || v.valorCompra || 0,
+          valorVenda: v.ValorVenda || v.valorVenda || 0,
+          quantidade: v.Quantidade || v.quantidade || 0
+        })) : [{ tamanho: '', valorCompra: 0, valorVenda: 0, quantidade: 0 }])
+      }
+    }, [dadosEdicao])
 
    const handleSalvar = async (e: React.FormEvent) => {
      e.preventDefault();
@@ -69,10 +78,10 @@ export default function ModalProduto({ onClose, onSucesso, dadosEdicao }: ModalP
        return;
      }
 
-     const metodo = dadosEdicao ? 'PUT' : 'POST';
-     const url = dadosEdicao 
-         ? `http://localhost:5145/api/Produto/${dadosEdicao.id}` 
-         : 'http://localhost:5145/api/Produto/cadastrar';
+const metodo = dadosEdicao ? 'PUT' : 'POST';
+      const url = dadosEdicao 
+          ? `http://localhost:5145/api/Produto/${dadosEdicao.Id}` 
+          : 'http://localhost:5145/api/Produto/cadastrar';
 
      try {
        const payload = {

@@ -7,6 +7,8 @@ interface ItemPedido {
   produtoNome: string
   quantidade: number
   valorUnitario: number
+  tamanhoId?: number
+  tamanhoNome?: string
 }
 
 interface Pedido {
@@ -15,14 +17,14 @@ interface Pedido {
   Data: string
   ValorTotal: number
   Status: string
-  Itens?: Array<{ ProdutoId: number; ProdutoNome: string; Quantidade: number; ValorUnitario: number }>
+  Itens?: Array<{ ProdutoId: number; ProdutoNome: string; Quantidade: number; ValorUnitario: number; TamanhoId?: number; TamanhoNome?: string }>
 }
 
 interface ModalPedidoProps {
   isOpen: boolean
   onClose: () => void
   onSucesso: () => void
-  produtos: Array<{ Id: number; Nome: string; Variacoes: Array<{ ValorVenda: number; Quantidade: number }> }>
+  produtos: Array<{ Id: number; Nome: string; Variacoes: Array<{ Id: number; Tamanho: string; ValorVenda: number; Quantidade: number }> }>
   pedido?: Pedido | null
 }
 
@@ -32,48 +34,83 @@ export default function ModalPedido({ isOpen, onClose, onSucesso, produtos, pedi
     produtoId: 0,
     produtoNome: '',
     quantidade: 1,
-    valorUnitario: 0
+    valorUnitario: 0,
+    tamanhoId: undefined,
+    tamanhoNome: ''
   }])
   const [status, setStatus] = useState('Pendente')
 
   useEffect(() => {
     if (!isOpen) {
       setCliente('')
-      setItens([{ produtoId: 0, produtoNome: '', quantidade: 1, valorUnitario: 0 }])
+      setItens([{ produtoId: 0, produtoNome: '', quantidade: 1, valorUnitario: 0, tamanhoId: undefined, tamanhoNome: '' }])
       setStatus('Pendente')
     } else if (pedido) {
       setCliente(pedido.Cliente)
       setStatus(pedido.Status)
-      // Carrega os itens do pedido se existirem
       if (pedido.Itens && pedido.Itens.length > 0) {
         setItens(pedido.Itens.map(item => ({
           produtoId: item.ProdutoId,
           produtoNome: item.ProdutoNome,
           quantidade: item.Quantidade,
-          valorUnitario: item.ValorUnitario
+          valorUnitario: item.ValorUnitario,
+          tamanhoId: item.TamanhoId,
+          tamanhoNome: item.TamanhoNome
         })))
       }
     }
   }, [isOpen, pedido])
 
-  const handleProdutoChange = (index: number, produtoId: number) => {
+const handleProdutoChange = (index: number, produtoId: number) => {
     const produto = produtos.find(p => p.Id === produtoId)
     if (!produto) {
       const novosItens = [...itens]
-      novosItens[index] = { ...novosItens[index], produtoId: 0, produtoNome: '', valorUnitario: 0 }
+      novosItens[index] = { ...novosItens[index], produtoId: 0, produtoNome: '', valorUnitario: 0, tamanhoId: undefined, tamanhoNome: '' }
       setItens(novosItens)
       return
     }
 
-    // Pega a primeira variação se existir, senão valor 0
-    const valorUnitario = produto.Variacoes?.[0]?.ValorVenda ?? 0
+    const temVariacoes = produto.Variacoes && produto.Variacoes.length > 0
+    const primeiroVar = produto.Variacoes?.[0] as any
 
     const novosItens = [...itens]
     novosItens[index] = {
       produtoId,
       produtoNome: produto.Nome,
-      quantidade: novosItens[index].quantidade,
-      valorUnitario
+      quantidade: 1, // reseta quantidade ao mudar produto
+      valorUnitario: primeiroVar ? Number(primeiroVar.ValorVenda) : 0,
+      tamanhoId: temVariacoes ? undefined : primeiroVar?.Id,
+      tamanhoNome: temVariacoes ? '' : primeiroVar?.Tamanho
+    }
+setItens(novosItens)
+  }
+
+  const handleTamanhoChange = (index: number, tamanhoId: number) => {
+    if (tamanhoId === 0) {
+      const novosItens = [...itens]
+      novosItens[index] = {
+        ...novosItens[index],
+        tamanhoId: undefined,
+        tamanhoNome: '',
+        valorUnitario: 0
+      }
+      setItens(novosItens)
+      return
+    }
+    
+    const item = itens[index]
+    const produto = produtos.find(p => p.Id === item.produtoId)
+    if (!produto || !produto.Variacoes) return
+
+    const variacao = produto.Variacoes.find(v => v.Id === tamanhoId)
+    if (!variacao) return
+
+    const novosItens = [...itens]
+    novosItens[index] = {
+      ...novosItens[index],
+      tamanhoId: variacao.Id,
+      tamanhoNome: variacao.Tamanho,
+      valorUnitario: Number(variacao.ValorVenda)
     }
     setItens(novosItens)
   }
@@ -86,7 +123,7 @@ export default function ModalPedido({ isOpen, onClose, onSucesso, produtos, pedi
   }
 
   const addItem = () => {
-    setItens([...itens, { produtoId: 0, produtoNome: '', quantidade: 1, valorUnitario: 0 }])
+    setItens([...itens, { produtoId: 0, produtoNome: '', quantidade: 1, valorUnitario: 0, tamanhoId: undefined, tamanhoNome: '' }])
   }
 
   const removeItem = (index: number) => {
@@ -132,7 +169,8 @@ export default function ModalPedido({ isOpen, onClose, onSucesso, produtos, pedi
       payload.Itens = itensValidos.map(item => ({
         ProdutoId: item.produtoId,
         Quantidade: item.quantidade,
-        ValorUnitario: item.valorUnitario
+        ValorUnitario: item.valorUnitario,
+        TamanhoId: item.tamanhoId
       }))
     }
 
@@ -228,7 +266,10 @@ export default function ModalPedido({ isOpen, onClose, onSucesso, produtos, pedi
             </div>
 
             <div className="space-y-3">
-              {itens.map((item, index) => (
+              {itens.map((item, index) => {
+                const produto = produtos.find(p => p.Id === item.produtoId)
+                const temVariacoes = produto?.Variacoes && produto.Variacoes.length > 0
+                return (
                 <div key={index} className="flex gap-2 items-end p-3 bg-slate-50 rounded-xl">
                   <div className="flex-1">
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Produto</label>
@@ -242,11 +283,29 @@ export default function ModalPedido({ isOpen, onClose, onSucesso, produtos, pedi
                       {produtos.map((p) => (
                         <option key={p.Id} value={p.Id}>
                           {p.Nome}
-                          {p.Variacoes?.[0] && ` (R$ ${Number(p.Variacoes[0].ValorVenda || 0).toFixed(2)})`}
                         </option>
                       ))}
                     </select>
                   </div>
+
+                  {temVariacoes && (
+                    <div className="w-32">
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Tamanho</label>
+                      <select
+                        value={item.tamanhoId || 0}
+                        onChange={(e) => handleTamanhoChange(index, Number(e.target.value))}
+                        className="w-full p-2 border border-gray-200 rounded-lg bg-white text-black focus:ring-2 focus:ring-[#EF5B25]"
+                        required
+                      >
+                        <option value={0}>Selecione...</option>
+                        {produto?.Variacoes?.map((v) => (
+                          <option key={v.Id} value={v.Id}>
+                            {v.Tamanho} - R$ {Number(v.ValorVenda || 0).toFixed(2)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="w-24">
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Qtd</label>
@@ -280,7 +339,7 @@ export default function ModalPedido({ isOpen, onClose, onSucesso, produtos, pedi
                     <Trash2 size={18} />
                   </button>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
 

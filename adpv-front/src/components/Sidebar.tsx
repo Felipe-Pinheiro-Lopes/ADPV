@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { LayoutDashboard, Package, Truck, ClipboardList, BarChart3, Users, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Package, Truck, ClipboardList, BarChart3, Users, Settings, LogOut, TrendingUp } from 'lucide-react'
 
 function getRoleFromToken(): 'Admin' | 'User' {
   try {
@@ -46,15 +46,18 @@ export default function Sidebar() {
     window.location.href = '/login'
   }
 
-  const menuItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
-    { name: 'Estoque', path: '/estoque', icon: <Package size={20} /> },
-    { name: 'Categorias', path: '/categorias', icon: <Settings size={20} /> },
-    { name: 'Fornecedores', path: '/fornecedores', icon: <Truck size={20} /> },
-    ...(role === 'Admin' ? [{ name: 'Usuários', path: '/usuarios', icon: <Users size={20} /> }] : []),
-    { name: 'Pedidos', path: '/pedidos', icon: <ClipboardList size={20} /> },
-    { name: 'Relatórios', path: '/relatorios', icon: <BarChart3 size={20} /> },
-  ]
+   const menuItems = [
+     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
+     { name: 'Estoque', path: '/estoque', icon: <Package size={20} /> },
+     { name: 'Categorias', path: '/categorias', icon: <Settings size={20} /> },
+     { name: 'Fornecedores', path: '/fornecedores', icon: <Truck size={20} /> },
+     { name: 'Pedidos', path: '/pedidos', icon: <ClipboardList size={20} /> },
+     ...(role === 'Admin' ? [
+        { name: 'Usuários', path: '/usuarios', icon: <Users size={20} /> },
+        { name: 'Relatórios', path: '/relatorios', icon: <BarChart3 size={20} /> },
+        { name: 'Prod. Mais Vendidos', path: '/produtos-mais-vendidos', icon: <TrendingUp size={20} /> }
+      ] : []),
+   ]
 
   return (
     <aside className="w-64 h-screen bg-white border-r border-gray-100 flex flex-col p-4 fixed left-0 top-0">
